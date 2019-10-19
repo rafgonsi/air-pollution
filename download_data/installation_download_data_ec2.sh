@@ -15,5 +15,6 @@ conda activate air-download-data
 conda install -c anaconda pandas=0.25.1 requests=2.22.0 retrying=1.3.3 -y
 conda install -c conda-forge boto3=1.9.243 -y
 
-echo '@reboot /home/ubuntu/air-pollution/startup.sh' | sudo crontab -
-touch home/ubuntu/air-pollution/last_run.log
+echo '@reboot /home/ubuntu/air-pollution/startup.sh' | crontab -
+mkdir home/ubuntu/logs
+touch home/ubuntu/logs/last_run.log
