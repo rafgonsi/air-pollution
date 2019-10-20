@@ -111,7 +111,7 @@ if __name__ == '__main__':
     stations_info = download_stations_info()
     stations = get_available_stations(stations_info)
     sensors = download_sensors(stations, WAIT_BETWEEN_REQUESTS)
-    measurements = download_all_measurements(sensors, WAIT_BETWEEN_REQUESTS)
+    measurements = download_measurements(sensors, WAIT_BETWEEN_REQUESTS)
     dct_to_s3(measurements,
               Bucket=BUCKET,
               Key=f'data_{now}.json')
