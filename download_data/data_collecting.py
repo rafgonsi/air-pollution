@@ -5,6 +5,7 @@ from requests.exceptions import RequestException
 from time import sleep
 from datetime import datetime
 from retrying import retry
+from inspect import signature
 
 
 def exec_request(url, timeout):
@@ -38,43 +39,57 @@ def get_available_stations(station_info):
     return set(station['id'] for station in station_info)
 
 
+def get_func_signature(f):
+    return f.__name__ + str(signature(f))
+
+
+def download(ids, wait_between_requests, download_data_func,
+             update_result_func):
+    failed_ids = []
+    result = None
+    for id in ids:
+        try:
+            data = download_data_func(id)
+            result = update_result_func(result, data, id)
+        except RequestException:
+            failed_ids.append(id)
+        sleep(wait_between_requests)
+    if failed_ids:
+        print(f'Failed to run {get_func_signature(download_data_func)} '
+              f'{len(failed_ids)} times. '
+              f'Argument values for failed cases: {failed_ids}.')
+    return result
+
+
 def download_sensors(stations, wait_between_requests):
-    result, failed_stations = [], []
-    for station in stations:
-        try:
-            # print('Downloading sensors for station:', station)
-            sensors_info = download_sensors_at_station(station)
-            sensors = [dct['id'] for dct in sensors_info]
-            result += sensors
-        except RequestException as e:
-            print(e)  # Just print error message and continue gathering data
-            failed_stations.append(station)
-        sleep(wait_between_requests)
-    if failed_stations:
-        print(f'Failed to download sensors for {len(failed_stations)} ' +
-              'stations:', failed_stations)
-    return result
+    def update_result(result, downloaded_data, _):
+        # third arg is for compatibility only
+        sensors_at_station = [dct['id'] for dct in downloaded_data]
+        return result + sensors_at_station if result else sensors_at_station
+
+    return download(
+        ids=stations,
+        wait_between_requests=wait_between_requests,
+        download_data_func=download_sensors_at_station,
+        update_result_func=update_result
+    )
 
 
-def download_all_measurements(sensors, wait_between_requests):
-    result, failed_sensors = {}, []
-    for sensor in sensors:
-        try:
-            # print('Downloading data for sensor:', sensor)
-            measurement = download_measurement(sensor)
-            result[sensor] = measurement
-        except RequestException as e:
-            print(f'Sensor {sensor}:', e)  # Just print error message and continue gathering data
-            failed_sensors.append(sensor)
-        sleep(wait_between_requests)
-    if failed_sensors:
-        print(f'Failed to download measurements for {len(failed_sensors)} ' +
-              'sensors:', failed_sensors)
-    return result
+def download_measurements(sensors, wait_between_requests):
+    def update_result(result, downloaded_data, sensor):
+        return {**result, sensor: downloaded_data} if result \
+            else {sensor: downloaded_data}
+
+    return download(
+        ids=sensors,
+        wait_between_requests=wait_between_requests,
+        download_data_func=download_measurement,
+        update_result_func=update_result
+    )
 
 
 def get_now_str():
-    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S") 
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def dct_to_s3(dct, Bucket, Key, ACL='private'):
