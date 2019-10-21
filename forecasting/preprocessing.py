@@ -86,11 +86,6 @@ def make_dataset(Bucket, parquet_data_filename, prefix_fresh_data='',
     except PermissionError:  # File does not exist
         df_old = pd.DataFrame()
     result = (pd.concat([df_new, df_old], ignore_index=True)
-              .sort_values('date')
-              .drop_duplicates(subset=['sensor_id', 'pollution_type', 'date'],
-                               keep='last'))  # keep the freshest data
+              .drop_duplicates(subset=['sensor_id', 'pollution_type', 'date']))
     result.to_parquet(f's3://{Bucket}/{parquet_data_filename}', index=False)
     return result
-
-
-
